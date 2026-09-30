@@ -378,7 +378,7 @@ a { color: inherit; text-decoration: none; }
   .auth-eyebrow { font-size: 8px; }
   .auth-image-caption { display: none; }
   .auth-main { align-items: flex-start; padding: 22px 22px 30px; }
-  .auth-panel { max-width: 480px; margin: 0 auto; }
+  .auth-panel { max-width: 480px; margin: 0px 0px 0 -20px; }
   .auth-mobile-brand { display: block; margin: 0 0 24px; }
   .auth-heading { margin-bottom: 20px; }
   .auth-heading h2 { font-size: 25px; }
