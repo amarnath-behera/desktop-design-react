@@ -1,5 +1,11 @@
 export type AuthMode = "login" | "register" | "profile";
 
+export type AdditionalIncomeEntry = {
+  id: string;
+  amount: number;
+  month: string;
+};
+
 export type UserProfile = {
   firstName: string;
   lastName: string;
@@ -7,6 +13,8 @@ export type UserProfile = {
   gender: string;
   mobile: string;
   email: string;
+  monthlyIncome?: number | undefined;
+  additionalIncomes?: AdditionalIncomeEntry[];
 };
 
 export const emptyProfile: UserProfile = {
@@ -16,6 +24,7 @@ export const emptyProfile: UserProfile = {
   gender: "",
   mobile: "",
   email: "",
+  additionalIncomes: [],
 };
 
 export function normalizeMobile(mobile: string) {
