@@ -127,7 +127,7 @@ function isMoneyEntry(value: unknown): value is { id: string; amount: number; da
     && /^\d{4}-\d{2}-\d{2}$/.test(value.date);
 }
 
-function isDashboardData(value: unknown): value is DashboardData {
+export function isDashboardData(value: unknown): value is DashboardData {
   if (!isRecord(value)) return false;
   const isMonthlyTransaction = (entry: unknown) => isRecord(entry)
     && typeof entry.name === "string"
@@ -170,6 +170,14 @@ function readStoredData(value: string | null): DashboardData {
       return emptyDashboardData;
     }
     return parsed.data;
+  } catch {
+    return emptyDashboardData;
+  }
+}
+
+export function readBrowserDashboardData(key: string): DashboardData {
+  try {
+    return readStoredData(window.localStorage.getItem(key));
   } catch {
     return emptyDashboardData;
   }

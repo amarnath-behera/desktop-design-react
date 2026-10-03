@@ -4,10 +4,9 @@ import { emptyProfile, normalizeMobile } from "../types";
 
 type ProfileFormProps = {
   mode: Exclude<AuthMode, "login">;
-  profiles: UserProfile[];
   profile?: UserProfile;
-  onRegister: (profile: UserProfile) => void;
-  onSaveProfile: (profile: UserProfile) => void;
+  onRegister: (profile: UserProfile) => Promise<void>;
+  onSaveProfile: (profile: UserProfile) => Promise<void>;
   onModeChange: (mode: AuthMode) => void;
   onLogout: () => void;
 };
@@ -25,7 +24,7 @@ function formatIncomeMonth(month: string) {
 
 const formatIncomeAmount = (amount: number) => amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function ProfileForm({ mode, profiles, profile, onRegister, onSaveProfile, onModeChange, onLogout }: ProfileFormProps) {
+export function ProfileForm({ mode, profile, onRegister, onSaveProfile, onModeChange, onLogout }: ProfileFormProps) {
   const [form, setForm] = useState<UserProfile>(() => ({
     ...(profile ?? emptyProfile),
     monthlyIncome: profile?.monthlyIncome,
@@ -83,16 +82,8 @@ export function ProfileForm({ mode, profiles, profile, onRegister, onSaveProfile
       setError("Choose a valid date of birth in the past.");
       return;
     }
-    const duplicate = profiles.find((savedProfile) =>
-      savedProfile.mobile !== profile?.mobile &&
-      (normalizeMobile(savedProfile.mobile) === normalized.mobile || savedProfile.email.toLowerCase() === normalized.email),
-    );
-    if (duplicate) {
-      setError("That mobile number or email is already registered.");
-      return;
-    }
-    if (mode === "register") onRegister(normalized);
-    else onSaveProfile(normalized);
+    const save = mode === "register" ? onRegister(normalized) : onSaveProfile(normalized);
+    void save.catch((saveError: unknown) => setError(saveError instanceof Error ? saveError.message : "Unable to save your profile."));
   }
 
   return (

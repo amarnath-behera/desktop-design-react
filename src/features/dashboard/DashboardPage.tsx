@@ -11,7 +11,6 @@ import {
   calculateDashboardSummary,
   createDashboardId,
   createDashboardStorageKey,
-  dashboardRepository,
   type BorrowingEntry,
   type BorrowingPayment,
   type DashboardData,
@@ -21,6 +20,7 @@ import {
   type PlanContribution,
   type TransactionCategory,
 } from "./dashboardData";
+import { dashboardRepository } from "./supabaseDashboardRepository";
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",
@@ -39,7 +39,7 @@ export function DashboardPage({ profile, onOpenProfile }: DashboardPageProps) {
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
-  const storageKey = createDashboardStorageKey(normalizeMobile(profile.mobile));
+  const storageKey = createDashboardStorageKey(profile.id ?? normalizeMobile(profile.mobile));
   const data = useSyncExternalStore(
     (listener) => dashboardRepository.subscribe(storageKey, listener),
     () => dashboardRepository.getSnapshot(storageKey),
