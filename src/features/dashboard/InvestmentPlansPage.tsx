@@ -1,23 +1,7 @@
 import { useState, type FormEvent } from "react";
+import type { ContributionFrequency, InvestmentPlan, PlanCategory, PlanContribution } from "./dashboardData";
 
-export type PlanCategory = "LIC" | "SIP" | "Savings";
-export type ContributionFrequency = "Monthly" | "Quarterly" | "Yearly";
-
-export type PlanContribution = {
-  id: string;
-  amount: number;
-  date: string;
-};
-
-export type InvestmentPlan = {
-  id: string;
-  name: string;
-  category: PlanCategory;
-  contributionAmount: number;
-  frequency: ContributionFrequency;
-  startDate: string;
-  contributions: PlanContribution[];
-};
+export type { InvestmentPlan, PlanCategory, PlanContribution } from "./dashboardData";
 
 type NewInvestmentPlan = Omit<InvestmentPlan, "id" | "contributions">;
 type NewPlanContribution = Omit<PlanContribution, "id">;
@@ -170,7 +154,7 @@ export function InvestmentPlansPage({ plans, onBack, onAddPlan, onRecordContribu
               <label className="expense-field" htmlFor="plan-category">Plan type<select id="plan-category" name="category" defaultValue="LIC"><option>LIC</option><option>SIP</option><option>Savings</option></select></label>
               <label className="expense-field" htmlFor="plan-name">Plan name<input id="plan-name" name="name" type="text" placeholder="e.g. Family protection" required /></label>
               <label className="expense-field" htmlFor="plan-contribution-amount-input">Contribution amount<span className="expense-price-input"><span aria-hidden="true">₹</span><input id="plan-contribution-amount-input" name="contributionAmount" type="number" min="0.01" step="0.01" placeholder="0.00" inputMode="decimal" required /></span></label>
-              <label className="expense-field" htmlFor="plan-frequency">Contribution frequency<select id="plan-frequency" name="frequency" defaultValue="Monthly"><option>Monthly</option><option>Quarterly</option><option>Yearly</option></select></label>
+              <label className="expense-field" htmlFor="plan-frequency">Contribution frequency<select id="plan-frequency" name="frequency" defaultValue="Monthly"><option>Monthly</option><option>Quarterly</option><option>Yearly</option><option>Not specified</option></select></label>
               <label className="expense-field" htmlFor="plan-start-date">Start date<input id="plan-start-date" name="startDate" type="date" defaultValue={getTodayDate()} required /></label>
               <button className="auth-submit expense-submit" type="submit">Save plan <span aria-hidden="true">↗</span></button>
             </form>

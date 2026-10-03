@@ -1,14 +1,12 @@
-export type ExpenseEntry = {
-  item: string;
-  amount: number;
-  date: string;
-};
+import { expenseCategories, type ExpenseEntry } from "./dashboardData";
+
+export type { ExpenseEntry } from "./dashboardData";
 
 type AddExpensePageProps = {
   selectedMonth: number;
   selectedYear: number;
   onCancel: () => void;
-  onSubmit: (expense: ExpenseEntry) => void;
+  onSubmit: (expense: Omit<ExpenseEntry, "id">) => void;
 };
 
 const monthNames = [
@@ -19,6 +17,8 @@ const monthNames = [
 export function AddExpensePage({ selectedMonth, selectedYear, onCancel, onSubmit }: AddExpensePageProps) {
   const today = new Date();
   const day = Math.min(today.getDate(), new Date(selectedYear, selectedMonth + 1, 0).getDate());
+  const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
+  const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
   const dateValue = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
   function submitExpense(event: React.FormEvent<HTMLFormElement>) {
@@ -26,8 +26,9 @@ export function AddExpensePage({ selectedMonth, selectedYear, onCancel, onSubmit
     const formData = new FormData(event.currentTarget);
     onSubmit({
       item: String(formData.get("item")),
+      category: String(formData.get("category")) as ExpenseEntry["category"],
       amount: Number(formData.get("price")),
-      date: dateValue,
+      date: String(formData.get("date")),
     });
   }
 
@@ -46,11 +47,17 @@ export function AddExpensePage({ selectedMonth, selectedYear, onCancel, onSubmit
         <form className="expense-form" onSubmit={submitExpense}>
           <label className="expense-field" htmlFor="expense-date">
             Date
-            <input id="expense-date" name="date" type="date" value={dateValue} disabled />
+            <input id="expense-date" name="date" type="date" min={`${monthKey}-01`} max={`${monthKey}-${String(lastDay).padStart(2, "0")}`} defaultValue={dateValue} required />
           </label>
           <label className="expense-field" htmlFor="expense-item">
             Item name
             <input id="expense-item" name="item" type="text" placeholder="e.g. Weekly groceries" autoComplete="off" required />
+          </label>
+          <label className="expense-field" htmlFor="expense-category">
+            Category
+            <select id="expense-category" name="category" defaultValue={expenseCategories[0]}>
+              {expenseCategories.map((category) => <option key={category}>{category}</option>)}
+            </select>
           </label>
           <label className="expense-field" htmlFor="expense-price">
             Item price

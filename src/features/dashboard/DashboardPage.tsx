@@ -1,44 +1,30 @@
-import { useState, type CSSProperties, type MouseEvent } from "react";
+import { useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import { Brand } from "../../components/Brand";
-import type { UserProfile } from "../auth/types";
-import { AddExpensePage, type ExpenseEntry } from "./AddExpensePage";
+import { normalizeMobile, type UserProfile } from "../auth/types";
+import { AddExpensePage } from "./AddExpensePage";
 import { BorrowingDetailsPage } from "./BorrowingDetailsPage";
-import { InvestmentPlansPage, type InvestmentPlan, type PlanContribution } from "./InvestmentPlansPage";
-import { MonthlyTransactionsPage, type MonthlyTransaction, type TransactionCategory } from "./MonthlyTransactionsPage";
-import { RepaymentsPage, type BorrowingEntry, type BorrowingPayment } from "./RepaymentsPage";
+import { InvestmentPlansPage } from "./InvestmentPlansPage";
+import { MonthlyTransactionsPage } from "./MonthlyTransactionsPage";
+import { RepaymentsPage } from "./RepaymentsPage";
 import { SpendingDetailsPage } from "./SpendingDetailsPage";
+import {
+  calculateDashboardSummary,
+  createDashboardId,
+  createDashboardStorageKey,
+  dashboardRepository,
+  type BorrowingEntry,
+  type BorrowingPayment,
+  type DashboardData,
+  type ExpenseEntry,
+  type InvestmentPlan,
+  type MonthlyTransaction,
+  type PlanContribution,
+  type TransactionCategory,
+} from "./dashboardData";
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
-];
-
-const monthlySpending = [
-  2840, 3180, 2675, 3490, 3025, 3760, 2910, 3340, 3120, 3580, 3275, 2460,
-];
-
-const initialBorrowings: BorrowingEntry[] = [
-  {
-    id: "borrowing-1",
-    name: "Borrowing 1",
-    amount: 10000,
-    monthlyPayment: 1000,
-    startDate: "2026-05-01",
-    payments: [
-      { id: "payment-may", date: "2026-05-01", amount: 1000 },
-      { id: "payment-june", date: "2026-06-01", amount: 1000 },
-      { id: "payment-july", date: "2026-07-01", amount: 1000 },
-      { id: "payment-august", date: "2026-08-01", amount: 1000 },
-      { id: "payment-september", date: "2026-09-01", amount: 1000 },
-    ],
-  },
-];
-
-const categories = [
-  { name: "Home & bills", amount: 1280, color: "mint" },
-  { name: "Food & dining", amount: 840, color: "coral" },
-  { name: "Transport", amount: 590, color: "gold" },
-  { name: "Everything else", amount: 640, color: "blue" },
 ];
 
 const formatAmount = (amount: number) => amount.toLocaleString("en-IN");
@@ -53,6 +39,11 @@ export function DashboardPage({ profile, onOpenProfile }: DashboardPageProps) {
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const storageKey = createDashboardStorageKey(normalizeMobile(profile.mobile));
+  const data = useSyncExternalStore(
+    (listener) => dashboardRepository.subscribe(storageKey, listener),
+    () => dashboardRepository.getSnapshot(storageKey),
+  );
   const [activeNavigation, setActiveNavigation] = useState("overview");
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showSpendingDetails, setShowSpendingDetails] = useState(false);
@@ -60,34 +51,14 @@ export function DashboardPage({ profile, onOpenProfile }: DashboardPageProps) {
   const [showInvestmentPlans, setShowInvestmentPlans] = useState(false);
   const [activeTransactionCategory, setActiveTransactionCategory] = useState<TransactionCategory | null>(null);
   const [selectedBorrowingId, setSelectedBorrowingId] = useState<string | null>(null);
-  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
-  const [vehicleTransactions, setVehicleTransactions] = useState<MonthlyTransaction[]>([]);
-  const [rentTransactions, setRentTransactions] = useState<MonthlyTransaction[]>([]);
-  const [borrowings, setBorrowings] = useState(initialBorrowings);
-  const [investmentPlans, setInvestmentPlans] = useState<InvestmentPlan[]>([]);
-  const monthOffset = (selectedYear - today.getFullYear()) * 12 + selectedMonth - today.getMonth();
-  const periodExpenses = expenses.filter((expense) => {
-    const date = new Date(`${expense.date}T00:00:00`);
-    return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
-  });
-  const spent = monthlySpending[((monthOffset % 12) + 12) % 12]
-    + periodExpenses.reduce((total, expense) => total + expense.amount, 0);
-  const budget = 5200;
-  const spentPercent = Math.round((spent / budget) * 100);
-  const previousMonth = (selectedMonth + 11) % 12;
+  const { vehicleTransactions, rentTransactions, borrowings, investmentPlans } = data;
+  const summary = calculateDashboardSummary(data, profile, selectedYear, selectedMonth);
+  const periodExpenses = summary.spendingRecords;
+  const spent = summary.spending;
+  const previousDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const previousMonth = previousDate.getMonth();
   const years = [today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1];
-  const borrowedTotal = borrowings.reduce((total, borrowing) => total + borrowing.amount, 0);
-  const paidTotal = borrowings.reduce((total, borrowing) => total + borrowing.payments.reduce((sum, payment) => sum + payment.amount, 0), 0);
-  const repaymentTotal = borrowings.reduce((total, borrowing) => total + Math.max(0, borrowing.amount - borrowing.payments.reduce((sum, payment) => sum + payment.amount, 0)), 0);
-  const activeBorrowingCount = borrowings.filter((borrowing) => borrowing.amount > borrowing.payments.reduce((sum, payment) => sum + payment.amount, 0)).length;
-  const monthlyPaymentTotal = borrowings.reduce((total, borrowing) => total + (borrowing.amount > borrowing.payments.reduce((sum, payment) => sum + payment.amount, 0) ? borrowing.monthlyPayment : 0), 0);
-  const investmentTotal = investmentPlans.reduce((total, plan) => total + plan.contributions.reduce((sum, contribution) => sum + contribution.amount, 0), 0);
-  const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const currentMonthLabel = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const vehicleMonthTransactions = vehicleTransactions.filter((transaction) => transaction.date.slice(0, 7) === currentMonthKey);
-  const rentMonthTransactions = rentTransactions.filter((transaction) => transaction.date.slice(0, 7) === currentMonthKey);
-  const vehicleMonthTotal = vehicleMonthTransactions.reduce((total, transaction) => total + transaction.amount, 0);
-  const rentMonthTotal = rentMonthTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+  const currentMonthLabel = new Date(selectedYear, selectedMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   function navigate(event: MouseEvent<HTMLAnchorElement>, destination: string) {
     setActiveNavigation(destination);
@@ -97,36 +68,58 @@ export function DashboardPage({ profile, onOpenProfile }: DashboardPageProps) {
     }
   }
 
-  function addExpense(expense: ExpenseEntry) {
-    setExpenses((current) => [expense, ...current]);
+  function updateData(update: (current: DashboardData) => DashboardData) {
+    dashboardRepository.update(storageKey, update);
+  }
+
+  function addExpense(expense: Omit<ExpenseEntry, "id">) {
+    updateData((current) => ({ ...current, expenses: [{ ...expense, id: createDashboardId("expense") }, ...current.expenses] }));
     setShowAddExpense(false);
     setActiveNavigation("overview");
   }
 
   function addBorrowing(borrowing: Omit<BorrowingEntry, "id" | "payments">) {
-    setBorrowings((current) => [{ ...borrowing, id: `borrowing-${Date.now()}`, payments: [] }, ...current]);
+    updateData((current) => ({
+      ...current,
+      borrowings: [{ ...borrowing, id: createDashboardId("borrowing"), payments: [] }, ...current.borrowings],
+    }));
   }
 
   function makePayment(borrowingId: string, payment: Omit<BorrowingPayment, "id">) {
-    setBorrowings((current) => current.map((borrowing) => borrowing.id === borrowingId
-      ? { ...borrowing, payments: [...borrowing.payments, { ...payment, id: `payment-${Date.now()}` }] }
-      : borrowing));
+    updateData((current) => ({
+      ...current,
+      borrowings: current.borrowings.map((borrowing) => {
+        if (borrowing.id !== borrowingId) return borrowing;
+        const paid = borrowing.payments.reduce((total, currentPayment) => total + currentPayment.amount, 0);
+        const amount = Math.min(payment.amount, Math.max(0, borrowing.amount - paid));
+        return amount > 0
+          ? { ...borrowing, payments: [...borrowing.payments, { ...payment, amount, id: createDashboardId("payment") }] }
+          : borrowing;
+      }),
+    }));
   }
 
   function addInvestmentPlan(plan: Omit<InvestmentPlan, "id" | "contributions">) {
-    setInvestmentPlans((current) => [{ ...plan, id: `plan-${Date.now()}`, contributions: [] }, ...current]);
+    updateData((current) => ({
+      ...current,
+      investmentPlans: [{ ...plan, id: createDashboardId("plan"), contributions: [] }, ...current.investmentPlans],
+    }));
   }
 
   function recordPlanContribution(planId: string, contribution: Omit<PlanContribution, "id">) {
-    setInvestmentPlans((current) => current.map((plan) => plan.id === planId
-      ? { ...plan, contributions: [...plan.contributions, { ...contribution, id: `contribution-${Date.now()}` }] }
-      : plan));
+    updateData((current) => ({
+      ...current,
+      investmentPlans: current.investmentPlans.map((plan) => plan.id === planId
+        ? { ...plan, contributions: [...plan.contributions, { ...contribution, id: createDashboardId("contribution") }] }
+        : plan),
+    }));
   }
 
   function addMonthlyTransaction(category: TransactionCategory, transaction: Omit<MonthlyTransaction, "id">) {
-    const entry = { ...transaction, id: `${category}-${Date.now()}` };
-    if (category === "vehicle") setVehicleTransactions((current) => [entry, ...current]);
-    else setRentTransactions((current) => [entry, ...current]);
+    const entry = { ...transaction, id: createDashboardId(category) };
+    updateData((current) => category === "vehicle"
+      ? { ...current, vehicleTransactions: [entry, ...current.vehicleTransactions] }
+      : { ...current, rentTransactions: [entry, ...current.rentTransactions] });
   }
 
   if (activeTransactionCategory) {
@@ -135,6 +128,8 @@ export function DashboardPage({ profile, onOpenProfile }: DashboardPageProps) {
       <MonthlyTransactionsPage
         category={category}
         transactions={category === "vehicle" ? vehicleTransactions : rentTransactions}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
         onBack={() => setActiveTransactionCategory(null)}
         onAdd={(transaction) => addMonthlyTransaction(category, transaction)}
       />
@@ -260,83 +255,88 @@ export function DashboardPage({ profile, onOpenProfile }: DashboardPageProps) {
 
         <section className="summary-grid" aria-label={`${monthNames[selectedMonth]} ${selectedYear} account summary`}>
           <button className="summary-card spending-summary spending-summary-button" type="button" aria-label="View daily spending details" onClick={() => setShowSpendingDetails(true)}>
-            <div className="card-topline"><span className="summary-icon icon-mint">↗</span><span className="comparison"><span>↘</span> 8.2%</span></div>
+            <div className="card-topline"><span className="summary-icon icon-mint">↗</span><span className="comparison">{summary.spendingChangePercent === null ? "No prior records" : <><span>{summary.spendingChangePercent <= 0 ? "↘" : "↗"}</span> {Math.abs(summary.spendingChangePercent).toFixed(1)}%</>}</span></div>
             <p className="summary-label">TOTAL SPENT</p><div className="summary-value">₹{formatCurrency(spent)}</div>
-            <p className="summary-foot">vs. ₹{formatAmount(monthlySpending[previousMonth])} last month</p>
-            <div className="mini-bars" aria-hidden="true">{[32, 44, 37, 62, 48, 74, 54, 67, 46, 84, 59, 71].map((height, index) => <span key={index} style={{ "--bar-height": `${height}%` } as CSSProperties} />)}</div>
+            <p className="summary-foot">vs. ₹{formatCurrency(summary.previousSpending)} last month</p>
+            <div className="mini-bars" aria-hidden="true">{summary.miniBarHeights.map((height, index) => <span key={index} style={{ "--bar-height": `${height}%` } as CSSProperties} />)}</div>
           </button>
           <button className="summary-card borrowing-summary borrowing-summary-button" id="borrowings" type="button" aria-label="View repayments" onClick={() => setShowRepayments(true)}>
-            <div className="card-topline borrowing-card-topline"><span className="summary-icon icon-coral">⇄</span><span className="loan-original-total"><small>ORIGINAL BORROWED</small><strong>₹{formatCurrency(borrowedTotal)}</strong></span></div>
-            <p className="summary-label">MONEY TO PAY BACK</p><div className="summary-value">₹{formatCurrency(repaymentTotal)}</div>
-            <p className="summary-foot">Across {activeBorrowingCount} active {activeBorrowingCount === 1 ? "borrowing" : "borrowings"} <span className="foot-separator">·</span> {monthlyPaymentTotal > 0 ? `₹${formatAmount(monthlyPaymentTotal)} monthly plan` : "Payments tracked below"}</p><div className="repayment-track" aria-label="Borrowings repayment progress"><span style={{ width: `${borrowedTotal ? Math.min(100, (paidTotal / borrowedTotal) * 100) : 0}%` }} /></div>
+            <div className="card-topline borrowing-card-topline"><span className="summary-icon icon-coral">⇄</span><span className="loan-original-total"><small>ORIGINAL BORROWED</small><strong>₹{formatCurrency(summary.borrowedTotal)}</strong></span></div>
+            <p className="summary-label">MONEY TO PAY BACK</p><div className="summary-value">₹{formatCurrency(summary.repaymentTotal)}</div>
+            <p className="summary-foot">Across {summary.activeBorrowingCount} active {summary.activeBorrowingCount === 1 ? "borrowing" : "borrowings"} <span className="foot-separator">·</span> {summary.monthlyPaymentTotal > 0 ? `₹${formatCurrency(summary.monthlyPaymentTotal)} monthly plan` : "Payments tracked below"}</p><div className="repayment-track" aria-label="Borrowings repayment progress"><span style={{ width: `${summary.borrowedTotal ? Math.min(100, (summary.paidTotal / summary.borrowedTotal) * 100) : 0}%` }} /></div>
           </button>
-          <article className="summary-card saved-summary">
-            <div className="card-topline"><span className="summary-icon icon-gold">✳</span><span className="comparison positive">↗ on track</span></div>
-            <p className="summary-label">SET ASIDE THIS MONTH</p><div className="summary-value">₹{formatAmount(860)}<span>.00</span></div>
-            <p className="summary-foot">You’re building a good habit.</p><div className="savings-spark" aria-hidden="true"><svg viewBox="0 0 150 28" preserveAspectRatio="none"><path d="M1 24 C20 21 22 14 38 17 S58 23 73 12 S97 18 109 9 S132 12 149 2" /></svg></div>
-          </article>
+          <button className="summary-card saved-summary spending-summary-button" type="button" aria-label="View savings contributions" onClick={() => setShowInvestmentPlans(true)}>
+            <div className="card-topline"><span className="summary-icon icon-gold">✳</span><span className="comparison positive">Recorded</span></div>
+            <p className="summary-label">SAVED THIS MONTH</p><div className="summary-value">₹{formatCurrency(summary.savings)}</div>
+            <p className="summary-foot">Contributions to savings plans</p><div className="savings-spark" aria-hidden="true"><svg viewBox="0 0 150 28" preserveAspectRatio="none"><path d={summary.savingsTrendPath} /></svg></div>
+          </button>
+          <button className="summary-card transaction-summary spending-summary-button" type="button" aria-label="View outgoing transaction details" onClick={() => setShowSpendingDetails(true)}>
+            <div className="card-topline"><span className="summary-icon icon-coral">↘</span><span className="investment-plan-count">{currentMonthLabel}</span></div>
+            <p className="summary-label">OUTGOING TRANSACTIONS</p><div className="summary-value">{formatAmount(summary.transactionCount)}</div>
+            <p className="summary-foot">Daily spending, bills, and repayments</p>
+          </button>
           <button className="summary-card investment-summary spending-summary-button" type="button" aria-label="View LIC, SIP, and savings details" onClick={() => setShowInvestmentPlans(true)}>
             <div className="card-topline"><span className="summary-icon icon-investment">✳</span><span className="investment-plan-count">{investmentPlans.length} tracked</span></div>
-            <p className="summary-label">LIC, SIP &amp; SAVINGS</p><div className="summary-value">₹{formatCurrency(investmentTotal)}</div>
-            <p className="summary-foot">Plans and contributions</p>
+            <p className="summary-label">LIC, SIP &amp; SAVINGS</p><div className="summary-value">₹{formatCurrency(summary.investmentContributions)}</div>
+            <p className="summary-foot">Contributions in {currentMonthLabel}</p>
           </button>
           <button className="summary-card monthly-transaction-summary vehicle-summary spending-summary-button" type="button" aria-label="View vehicle maintenance transactions" onClick={() => setActiveTransactionCategory("vehicle")}>
-            <div className="card-topline"><span className="summary-icon icon-vehicle" aria-hidden="true">↻</span><span className="monthly-transaction-count">{vehicleMonthTransactions.length} this month</span></div>
-            <p className="summary-label">VEHICLE MAINTENANCE</p><div className="summary-value">₹{formatCurrency(vehicleMonthTotal)}</div>
+            <div className="card-topline"><span className="summary-icon icon-vehicle" aria-hidden="true">↻</span><span className="monthly-transaction-count">{summary.vehicleTransactionCount} this month</span></div>
+            <p className="summary-label">VEHICLE MAINTENANCE</p><div className="summary-value">₹{formatCurrency(summary.vehicleTotal)}</div>
             <p className="summary-foot">{currentMonthLabel}</p>
           </button>
           <button className="summary-card monthly-transaction-summary rent-summary spending-summary-button" type="button" aria-label="View rent transactions" onClick={() => setActiveTransactionCategory("rent")}>
-            <div className="card-topline"><span className="summary-icon icon-rent" aria-hidden="true">⌂</span><span className="monthly-transaction-count">{rentMonthTransactions.length} this month</span></div>
-            <p className="summary-label">RENT</p><div className="summary-value">₹{formatCurrency(rentMonthTotal)}</div>
+            <div className="card-topline"><span className="summary-icon icon-rent" aria-hidden="true">⌂</span><span className="monthly-transaction-count">{summary.rentTransactionCount} this month</span></div>
+            <p className="summary-label">RENT</p><div className="summary-value">₹{formatCurrency(summary.rentTotal)}</div>
             <p className="summary-foot">{currentMonthLabel}</p>
           </button>
         </section>
 
         <section className="budget-card" id="budget">
-          <div className="budget-copy"><span className="budget-icon">◷</span><div><p className="budget-label">YOUR MONTHLY BUDGET</p><h3><strong>₹{formatAmount(budget)}</strong> <span>planned for {monthNames[selectedMonth]}</span></h3></div></div>
+          <div className="budget-copy"><span className="budget-icon">◷</span><div><p className="budget-label">MONTHLY CASH FLOW</p><h3><strong>₹{formatCurrency(summary.income)}</strong> <span>income in {monthNames[selectedMonth]}</span></h3></div></div>
           <div className="budget-progress-wrap">
-            <div className="budget-progress-label"><span><strong>₹{formatCurrency(spent)}</strong> spent</span><span>₹{formatCurrency(budget - spent)} left</span></div>
-            <div className="budget-progress"><span style={{ width: `${spentPercent}%` }} /></div>
-            <p className="budget-caption"><span className="budget-status-dot" /> {spentPercent}% of your budget used</p>
+            <div className="budget-progress-label"><span><strong>₹{formatCurrency(summary.allocatedTotal)}</strong> allocated</span><span>₹{formatCurrency(summary.remainingAfterAllocation)} remaining</span></div>
+            <div className="budget-progress"><span style={{ width: `${Math.min(100, summary.allocatedPercent)}%` }} /></div>
+            <p className="budget-caption"><span className="budget-status-dot" /> {summary.income > 0 ? `${summary.allocatedPercent}% of income allocated` : "Add income in your profile to see cash flow"}</p>
           </div>
-          <div className="budget-percent">{spentPercent}<span>%</span></div>
+          <div className="budget-percent">{summary.allocatedPercent}<span>%</span></div>
         </section>
 
         <section className="insights-grid" id="spending">
           <article className="insight-card flow-card">
             <div className="insight-header"><div><span className="section-kicker">THE BIG PICTURE</span><h3>Your spending flow</h3></div><button className="more-button" type="button" aria-label="More spending chart options">···</button></div>
-            <div className="chart-summary"><strong>₹{formatCurrency(spent)}</strong><span className="comparison"><span>↘</span> 8.2%</span><small>compared to {monthNames[previousMonth]}</small></div>
-            <div className="flow-chart" role="img" aria-label={`Spending chart for ${monthNames[selectedMonth]}, with daily spending rising over the month`}>
-              <div className="chart-y-labels"><span>₹1,000</span><span>₹750</span><span>₹500</span><span>₹250</span><span>₹0</span></div>
+            <div className="chart-summary"><strong>₹{formatCurrency(spent)}</strong><span className="comparison">{summary.spendingChangePercent === null ? "No comparison" : <><span>{summary.spendingChangePercent <= 0 ? "↘" : "↗"}</span> {Math.abs(summary.spendingChangePercent).toFixed(1)}%</>}</span><small>compared to {monthNames[previousMonth]}</small></div>
+            <div className="flow-chart" role="img" aria-label={`Recorded daily outflows for ${monthNames[selectedMonth]} ${selectedYear}`}>
+              <div className="chart-y-labels">{summary.dailyScale.map((amount, index) => <span key={index}>₹{formatAmount(amount)}</span>)}</div>
               <div className="chart-plot">
                 <div className="chart-grid-lines"><i /><i /><i /><i /><i /></div>
                 <svg className="flow-svg" viewBox="0 0 600 170" preserveAspectRatio="none" aria-hidden="true">
                   <defs><linearGradient id="flowFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#9bdfc4" stopOpacity=".25" /><stop offset="100%" stopColor="#9bdfc4" stopOpacity="0" /></linearGradient></defs>
-                  <path className="chart-area" d="M0 137 C30 127 34 115 64 119 S101 128 128 106 S159 99 185 109 S220 86 246 91 S278 77 308 91 S340 68 368 75 S400 54 427 69 S458 46 486 57 S525 35 550 44 S582 23 600 19 L600 170 L0 170Z" />
-                  <path className="chart-line" d="M0 137 C30 127 34 115 64 119 S101 128 128 106 S159 99 185 109 S220 86 246 91 S278 77 308 91 S340 68 368 75 S400 54 427 69 S458 46 486 57 S525 35 550 44 S582 23 600 19" />
-                  <circle className="chart-point" cx="600" cy="19" r="5" />
+                  <path className="chart-area" d={summary.chartAreaPath} />
+                  <polyline className="chart-line" points={summary.chartLinePoints} />
+                  <circle className="chart-point" cx="600" cy={summary.chartLastY} r="5" />
                 </svg>
-                <div className="chart-x-labels"><span>1 {monthNames[selectedMonth].slice(0, 3)}</span><span>8 {monthNames[selectedMonth].slice(0, 3)}</span><span>15 {monthNames[selectedMonth].slice(0, 3)}</span><span>22 {monthNames[selectedMonth].slice(0, 3)}</span><span>Today</span></div>
+                <div className="chart-x-labels">{[1, 8, 15, 22, summary.dailySpending.length].map((day) => <span key={day}>{day} {monthNames[selectedMonth].slice(0, 3)}</span>)}</div>
               </div>
             </div>
-            <div className="chart-footer"><span><i className="legend-dot" /> Daily spending</span><span>Updated just now <i className="live-dot" /></span></div>
+            <div className="chart-footer"><span><i className="legend-dot" /> Recorded outflows</span><span>Live from your entries <i className="live-dot" /></span></div>
           </article>
           <article className="insight-card category-card">
             <div className="insight-header"><div><span className="section-kicker">WHERE IT GOES</span><h3>By category</h3></div><button className="more-button" type="button" aria-label="More category options">···</button></div>
             <div className="category-visual">
-              <div className="donut-chart" role="img" aria-label="Spending split: home and bills 38%, food and dining 25%, transport 18%, everything else 19%"><div className="donut-center"><strong>{spentPercent}%</strong><span>of budget</span></div></div>
-              <div className="category-legend">{categories.map((category) => <div className="category-row" key={category.name}><span className={`category-swatch ${category.color}`} /><span className="category-name">{category.name}</span><strong>₹{formatAmount(category.amount)}</strong></div>)}</div>
+              <div className="donut-chart" style={{ background: summary.categoryGradient }} role="img" aria-label={`Spending by category: ${summary.categoryBreakdown.map((category) => `${category.name} ${category.percent.toFixed(1)} percent`).join(", ") || "no spending recorded"}`}><div className="donut-center"><strong>{summary.categoryBreakdown.length}</strong><span>categories</span></div></div>
+              <div className="category-legend">{summary.categoryBreakdown.map((category) => <div className="category-row" key={category.name}><span className={`category-swatch ${category.color}`} /><span className="category-name">{category.name}</span><strong>₹{formatCurrency(category.amount)}</strong></div>)}{summary.categoryBreakdown.length === 0 && <p className="category-empty">No spending recorded for this month.</p>}</div>
             </div>
             <a href="#budget" className="category-link">Explore your spending <span>↗</span></a>
           </article>
         </section>
         {periodExpenses.length > 0 && (
-          <section className="recent-expenses" aria-label="Recently added expenses">
-            <div className="recent-expenses-heading"><span className="section-kicker">JUST ADDED</span><h3>Recent expenses</h3></div>
+          <section className="recent-expenses" aria-label="Recent transactions">
+            <div className="recent-expenses-heading"><span className="section-kicker">JUST ADDED</span><h3>Recent transactions</h3></div>
             {periodExpenses.slice(0, 3).map((expense) => (
-              <div className="recent-expense-row" key={`${expense.date}-${expense.item}-${expense.amount}`}>
+              <div className="recent-expense-row" key={expense.id}>
                 <span className="recent-expense-mark" aria-hidden="true">↗</span>
-                <span className="recent-expense-copy"><strong>{expense.item}</strong><small>{new Date(`${expense.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</small></span>
+                <span className="recent-expense-copy"><strong>{expense.name}</strong><small>{expense.category} · {new Date(`${expense.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</small></span>
                 <strong className="recent-expense-amount">−₹{formatCurrency(expense.amount)}</strong>
               </div>
             ))}

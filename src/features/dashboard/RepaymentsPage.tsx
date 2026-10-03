@@ -1,19 +1,7 @@
 import { useState, type FormEvent } from "react";
+import type { BorrowingEntry } from "./dashboardData";
 
-export type BorrowingPayment = {
-  id: string;
-  amount: number;
-  date: string;
-};
-
-export type BorrowingEntry = {
-  id: string;
-  name: string;
-  amount: number;
-  monthlyPayment: number;
-  startDate: string;
-  payments: BorrowingPayment[];
-};
+export type { BorrowingEntry, BorrowingPayment } from "./dashboardData";
 
 type NewBorrowing = Omit<BorrowingEntry, "id" | "payments">;
 

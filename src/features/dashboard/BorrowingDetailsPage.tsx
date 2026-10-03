@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { BorrowingEntry, BorrowingPayment } from "./RepaymentsPage";
+import type { BorrowingEntry, BorrowingPayment } from "./dashboardData";
 
 type BorrowingDetailsPageProps = {
   borrowing: BorrowingEntry;
