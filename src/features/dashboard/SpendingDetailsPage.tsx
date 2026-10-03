@@ -1,10 +1,10 @@
-import type { ExpenseEntry } from "./AddExpensePage";
+import type { SpendingRecord } from "./dashboardData";
 
 type SpendingDetailsPageProps = {
   selectedMonth: number;
   selectedYear: number;
   lastDay: number;
-  expenses: ExpenseEntry[];
+  expenses: SpendingRecord[];
   onBack: () => void;
 };
 
@@ -44,7 +44,7 @@ export function SpendingDetailsPage({ selectedMonth, selectedYear, lastDay, expe
           <div>
             <span className="section-kicker">SPENDING HISTORY</span>
             <h1>Daily details</h1>
-            <p>Expenses recorded from {dailyDetails[dailyDetails.length - 1]?.label} to {dailyDetails[0]?.label}.</p>
+            <p>Transactions recorded from {dailyDetails[dailyDetails.length - 1]?.label} to {dailyDetails[0]?.label}.</p>
           </div>
           <div className="details-total"><span>RECORDED TOTAL</span><strong>₹{formatCurrency(recordedTotal)}</strong></div>
         </div>
@@ -55,10 +55,10 @@ export function SpendingDetailsPage({ selectedMonth, selectedYear, lastDay, expe
               {day.expenses.length > 0 ? (
                 <ul className="daily-expense-items">
                   {day.expenses.map((expense, index) => (
-                    <li key={`${expense.item}-${index}`}><span>{expense.item}</span><strong>₹{formatCurrency(expense.amount)}</strong></li>
+                    <li key={`${expense.id}-${index}`}><span className="daily-expense-item-copy"><strong>{expense.name}</strong><small>{expense.category}</small></span><strong>₹{formatCurrency(expense.amount)}</strong></li>
                   ))}
                 </ul>
-              ) : <p className="daily-expense-empty">No expenses recorded</p>}
+              ) : <p className="daily-expense-empty">No transactions recorded</p>}
               <div className="daily-expense-total"><span>Day total</span><strong>₹{formatCurrency(day.total)}</strong></div>
             </article>
           ))}

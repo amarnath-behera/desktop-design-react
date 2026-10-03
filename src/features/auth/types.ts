@@ -7,6 +7,7 @@ export type AdditionalIncomeEntry = {
 };
 
 export type UserProfile = {
+  id?: string;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
